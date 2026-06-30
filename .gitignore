@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+data/
+saved_model/
+saved_model_master/
+result.csv
+result_master.csv
