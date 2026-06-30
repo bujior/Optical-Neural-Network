@@ -26,23 +26,23 @@ class DiffractiveLayer(torch.nn.Module):
         self.wl = 3e8 / 0.4e12                  # wave length
         self.fi = 1 / self.ll                   # frequency interval
         self.wn = 2 * 3.1415926 / self.wl       # wave number
-        # self.phi (200, 200)
-        self.phi = np.fromfunction(
+        # phi (200, 200)
+        phi = np.fromfunction(
             lambda x, y: np.square((x - (self.size // 2)) * self.fi) + np.square((y - (self.size // 2)) * self.fi),
-            shape=(self.size, self.size), dtype=np.complex64)
-        # h (200, 200)
-        h = np.fft.fftshift(np.exp(1.0j * self.wn * self.distance) * np.exp(-1.0j * self.wl * np.pi * self.distance * self.phi))
-        # self.h (200, 200, 2)
-        self.h = torch.nn.Parameter(torch.stack((torch.from_numpy(h.real), torch.from_numpy(h.imag)), dim=-1), requires_grad=False)
+            shape=(self.size, self.size), dtype=np.float32)
+        # H (200, 200)
+        H = np.fft.fftshift(np.exp(1.0j * self.wn * self.distance) * np.exp(-1.0j * self.wl * np.pi * self.distance * phi))
+        # self.H (200, 200, 2)
+        H = torch.view_as_real(torch.from_numpy(H.astype(np.complex64)))
+        self.register_buffer("H", H)
 
     def forward(self, waves):
         # waves (batch, 200, 200, 2)
-        temp = torch.fft(waves, signal_ndim=2)
-        k_pace_real = self.h[..., 0] * temp[..., 0] - self.h[..., 1] * temp[..., 1]
-        k_space_imag = self.h[..., 0] * temp[..., 1] + self.h[..., 1] * temp[..., 0]
-        k_space = torch.stack((k_pace_real, k_space_imag), dim=-1)
+        waves_complex = torch.view_as_complex(waves.contiguous())
+        H_complex = torch.view_as_complex(self.H.contiguous())
+        k_space = H_complex * torch.fft.fft2(waves_complex)
         # angular_spectrum (batch, 200, 200, 2)
-        angular_spectrum = torch.ifft(k_space, signal_ndim=2)
+        angular_spectrum = torch.view_as_real(torch.fft.ifft2(k_space))
         return angular_spectrum
 
 
