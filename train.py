@@ -70,7 +70,7 @@ def main(args):
             writer = csv.writer(csvfile)
             writer.writerow(["Epoch", "Train_Loss", "Train_Acc", "Val_Loss", "Val_Acc", "LR"])
 
-    criterion = torch.nn.MSELoss(reduction="sum").to(device)
+    criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in range(args.start_epoch + 1, args.start_epoch + 1 + args.num_epochs):
@@ -86,13 +86,12 @@ def main(args):
             train_images = train_data_batch[0].to(device)
             train_labels = train_data_batch[1].to(device)
             train_images = F.pad(train_images, pad=(86, 86, 86, 86))
-            train_labels = F.one_hot(train_labels, num_classes=10).float()
             train_images = make_complex_field(train_images)
 
             train_outputs = model(train_images)
             train_loss_ = criterion(train_outputs, train_labels)
             train_counter_ = torch.eq(
-                torch.argmax(train_labels, dim=1),
+                train_labels,
                 torch.argmax(train_outputs, dim=1),
             ).float().sum()
 
@@ -101,7 +100,7 @@ def main(args):
             optimizer.step()
 
             train_len += len(train_labels)
-            train_running_loss += train_loss_.item()
+            train_running_loss += train_loss_.item() * len(train_labels)
             train_running_counter += train_counter_.item()
 
             train_loss = train_running_loss / train_len
@@ -131,18 +130,17 @@ def main(args):
                 val_images = val_data_batch[0].to(device)
                 val_labels = val_data_batch[1].to(device)
                 val_images = F.pad(val_images, pad=(86, 86, 86, 86))
-                val_labels = F.one_hot(val_labels, num_classes=10).float()
                 val_images = make_complex_field(val_images)
 
                 val_outputs = model(val_images)
                 val_loss_ = criterion(val_outputs, val_labels)
                 val_counter_ = torch.eq(
-                    torch.argmax(val_labels, dim=1),
+                    val_labels,
                     torch.argmax(val_outputs, dim=1),
                 ).float().sum()
 
                 val_len += len(val_labels)
-                val_running_loss += val_loss_.item()
+                val_running_loss += val_loss_.item() * len(val_labels)
                 val_running_counter += val_counter_.item()
 
                 val_loss = val_running_loss / val_len

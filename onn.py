@@ -24,14 +24,15 @@ class DiffractiveLayer(torch.nn.Module):
         self.distance = 0.03                    # distance bewteen two layers (3cm)
         self.ll = 0.08                          # layer length (8cm)
         self.wl = 3e8 / 0.4e12                  # wave length
-        self.fi = 1 / self.ll                   # frequency interval
         self.wn = 2 * 3.1415926 / self.wl       # wave number
-        # phi (200, 200)
-        phi = np.fromfunction(
-            lambda x, y: np.square((x - (self.size // 2)) * self.fi) + np.square((y - (self.size // 2)) * self.fi),
-            shape=(self.size, self.size), dtype=np.float32)
+        pixel_size = self.ll / self.size
+        fx = np.fft.fftfreq(self.size, d=pixel_size)
+        fy = np.fft.fftfreq(self.size, d=pixel_size)
+        fxx, fyy = np.meshgrid(fx, fy)
+        # phi (200, 200), aligned with the unshifted order returned by torch.fft.fft2
+        phi = np.square(fxx) + np.square(fyy)
         # H (200, 200)
-        H = np.fft.fftshift(np.exp(1.0j * self.wn * self.distance) * np.exp(-1.0j * self.wl * np.pi * self.distance * phi))
+        H = np.exp(1.0j * self.wn * self.distance) * np.exp(-1.0j * self.wl * np.pi * self.distance * phi)
         # self.H (200, 200, 2)
         H = torch.view_as_real(torch.from_numpy(H.astype(np.complex64)))
         self.register_buffer("H", H)
@@ -54,12 +55,12 @@ class Net(torch.nn.Module):
 
         super(Net, self).__init__()
         # self.phase (200, 200)
-        self.phase = [torch.nn.Parameter(torch.from_numpy(2 * np.pi * np.random.random(size=(200, 200)).astype('float32'))) for _ in range(num_layers)]
-        for i in range(num_layers):
-            self.register_parameter("phase" + "_" + str(i), self.phase[i])
+        self.phase = torch.nn.ParameterList([
+            torch.nn.Parameter(torch.from_numpy(2 * np.pi * np.random.random(size=(200, 200)).astype('float32')))
+            for _ in range(num_layers)
+        ])
         self.diffractive_layers = torch.nn.ModuleList([DiffractiveLayer() for _ in range(num_layers)])
         self.last_diffractive_layer = DiffractiveLayer()
-        self.sofmax = torch.nn.Softmax(dim=-1)
 
     def forward(self, x):
         # x (batch, 200, 200, 2)
@@ -70,9 +71,10 @@ class Net(torch.nn.Module):
             x_imag = temp[..., 0] * exp_j_phase[..., 1] + temp[..., 1] * exp_j_phase[..., 0]
             x = torch.stack((x_real, x_imag), dim=-1)
         x = self.last_diffractive_layer(x)
-        # x_abs (batch, 200, 200)
-        x_abs = torch.sqrt(x[..., 0] * x[..., 0] + x[..., 1] * x[..., 1])
-        output = self.sofmax(detector_region(x_abs))
+        # Detectors measure optical intensity, not field amplitude.
+        intensity = x[..., 0] * x[..., 0] + x[..., 1] * x[..., 1]
+        detector_power = detector_region(intensity)
+        output = torch.log(detector_power + 1e-12)
         return output
 
 
