@@ -167,9 +167,11 @@ def main(args):
         print('Model : "' + model_path + '" saved.')
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
-            best_model_path = os.path.join(args.model_save_path, "best" + args.model_name)
-            torch.save(model.state_dict(), best_model_path)
-            print('Best model : "' + best_model_path + '" saved. Val_Accuracy: {:.5f}'.format(best_val_accuracy))
+            best_model_dir = os.path.dirname(args.best_model_path)
+            if best_model_dir:
+                os.makedirs(best_model_dir, exist_ok=True)
+            torch.save(model.state_dict(), args.best_model_path)
+            print('Best model : "' + args.best_model_path + '" saved. Val_Accuracy: {:.5f}'.format(best_val_accuracy))
 
         with open(args.result_record_path, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
@@ -195,7 +197,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--start-epoch", type=int, default=0, help="epoch to resume from")
     parser.add_argument("--model-name", type=str, default="_model.pth")
-    parser.add_argument("--model-save-path", type=str, default="./saved_model/")
+    parser.add_argument("--model-save-path", type=str, default="./models/checkpoints/")
+    parser.add_argument("--best-model-path", type=str, default="./models/training/best_model.pth")
     parser.add_argument(
         "--result-record-path",
         type=pathlib.Path,

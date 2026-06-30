@@ -20,7 +20,7 @@ def make_complex_field(images):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="best_model.pth")
+    parser.add_argument("--model", type=str, default="models/best_model.pth")
     parser.add_argument("--data-path", type=str, default="./data")
     parser.add_argument("--batch-size", type=int, default=512)
     parser.add_argument("--results-dir", type=str, default="./results")

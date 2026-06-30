@@ -7,8 +7,9 @@ cd /root/autodl-tmp/Optical-Neural-Network
 
 python train.py \
   --data-path /root/autodl-tmp/data \
-  --model-save-path /root/autodl-tmp/onn_saved_model \
-  --result-record-path /root/autodl-tmp/onn_result.csv \
+  --model-save-path ./models/checkpoints \
+  --best-model-path ./models/training/best_model.pth \
+  --result-record-path ./results/result.csv \
   --batch-size 1024 \
   --num-epochs 120 \
   --num-workers 8 \

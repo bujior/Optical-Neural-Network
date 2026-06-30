@@ -39,7 +39,7 @@ def load_image(image_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("image", type=str, help="path to your handwritten digit image")
-    parser.add_argument("--model", type=str, default="best_model.pth")
+    parser.add_argument("--model", type=str, default="models/best_model.pth")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
