@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# AutoDL 训练启动脚本：用于在远程 GPU 环境中一键运行 train.py。
+# 该脚本只封装训练命令和路径参数，不包含模型结构、数据集或模型权重。
 set -e
 
 cd /root/autodl-tmp/Optical-Neural-Network
