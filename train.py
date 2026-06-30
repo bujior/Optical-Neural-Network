@@ -38,10 +38,11 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_workers = min(args.num_workers, os.cpu_count() or 1)
     pin_memory = device.type == "cuda"
+    print(f"Using device: {device}")
 
     transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset = torchvision.datasets.MNIST("./data", train=True, transform=transform, download=True)
-    val_dataset = torchvision.datasets.MNIST("./data", train=False, transform=transform, download=True)
+    train_dataset = torchvision.datasets.MNIST(args.data_path, train=True, transform=transform, download=args.download)
+    val_dataset = torchvision.datasets.MNIST(args.data_path, train=False, transform=transform, download=args.download)
     train_dataloader = DataLoader(
         dataset=train_dataset,
         batch_size=args.batch_size,
@@ -72,6 +73,7 @@ def main(args):
 
     criterion = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    best_val_accuracy = 0.0
 
     for epoch in range(args.start_epoch + 1, args.start_epoch + 1 + args.num_epochs):
         log = [epoch]
@@ -163,6 +165,11 @@ def main(args):
         model_path = os.path.join(args.model_save_path, str(epoch) + args.model_name)
         torch.save(model.state_dict(), model_path)
         print('Model : "' + model_path + '" saved.')
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            best_model_path = os.path.join(args.model_save_path, "best" + args.model_name)
+            torch.save(model.state_dict(), best_model_path)
+            print('Best model : "' + best_model_path + '" saved. Val_Accuracy: {:.5f}'.format(best_val_accuracy))
 
         with open(args.result_record_path, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
@@ -176,6 +183,8 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--lr", type=float, default=1e-3, help="learning rate")
+    parser.add_argument("--data-path", type=str, default="./data", help="path to MNIST data")
+    parser.add_argument("--download", type=str2bool, nargs="?", const=True, default=True, help="download MNIST if needed")
     parser.add_argument(
         "--whether-load-model",
         type=str2bool,
@@ -199,4 +208,6 @@ if __name__ == "__main__":
     random.seed(args_.seed)
     np.random.seed(args_.seed)
     torch.manual_seed(args_.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args_.seed)
     main(args_)
