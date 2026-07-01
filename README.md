@@ -1,142 +1,205 @@
 # Optical-Neural-Network
 
-PyTorch 版的 Diffractive Deep Neural Network 小复现，参考论文：
+PyTorch version of a Diffractive Deep Neural Network (D2NN) for MNIST digit classification.
+
+Reference paper:
 
 **All optical machine learning using diffractive deep neural networks**
 
-代码用 MNIST 做分类实验。输入图片先补到 `200 x 200`，再当作复数光场送进多层衍射网络，最后用 10 个 detector region 的光强做分类。
+The input image is padded to `200 x 200`, treated as a complex optical field, propagated through diffractive layers, and classified by optical intensity collected from 10 detector regions.
 
-这个仓库主要是方便自己跑通流程和继续改实验，不包含已经训练好的权重。
-
-## 文件
+## Project Structure
 
 ```text
-.
-├── onn.py              # 网络结构
-├── train.py            # 训练脚本
-├── train_autodl.sh     # AutoDL 上用的启动脚本
-├── requirements.txt    # 依赖
-├── tests/              # 简单测试
-└── README.md
+Optical-Neural-Network/
+├── train.py                 # Train the ONN on MNIST
+├── test.py                  # Evaluate MNIST accuracy and optionally save confusion matrix
+├── predict.py               # Predict your own handwritten digit image
+├── onn.py                   # Optical neural network model
+├── requirements.txt         # Python dependencies
+├── README.md                # Project documentation
+├── train_autodl.sh          # AutoDL training helper
+├── data/                    # MNIST data, ignored by Git
+├── models/
+│   ├── best_model.pth        # Committed demo/checkpoint model
+│   ├── checkpoints/          # Epoch checkpoints, ignored by Git
+│   └── training/             # Future training outputs, ignored by Git
+├── images/                  # Your own test images, ignored by Git
+└── results/                 # Test/prediction outputs, ignored by Git
 ```
 
-## 安装
+## Installation
 
-先装依赖：
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-如果要用 GPU，PyTorch 最好按自己机器的 CUDA 版本单独安装，别直接套一个固定版本。
+If you use GPU, install a PyTorch build that matches your CUDA environment.
 
-## 训练
+## Training
 
-Linux / macOS：
+Linux / AutoDL:
 
 ```bash
 python train.py \
   --data-path ./data \
-  --model-save-path ./saved_model \
-  --result-record-path ./result.csv \
+  --model-save-path ./models/checkpoints \
+  --best-model-path ./models/training/best_model.pth \
+  --result-record-path ./results/result.csv \
   --batch-size 1024 \
   --num-epochs 120 \
   --num-workers 8 \
   --lr 0.001
 ```
 
-Windows PowerShell：
+Windows PowerShell:
 
 ```powershell
 python train.py `
   --data-path ./data `
-  --model-save-path ./saved_model `
-  --result-record-path ./result.csv `
+  --model-save-path ./models/checkpoints `
+  --best-model-path ./models/training/best_model.pth `
+  --result-record-path ./results/result.csv `
   --batch-size 1024 `
   --num-epochs 120 `
   --num-workers 8 `
   --lr 0.001
 ```
 
-脚本会自动用 CUDA；没有 CUDA 就用 CPU。完整训练比较慢，第一次可以先把 `--num-epochs` 调小，确认环境没问题。
+Training uses CUDA automatically if available; otherwise it falls back to CPU.
 
-## 输出
+Training outputs:
 
-训练会生成：
+- `models/checkpoints/{epoch}_model.pth`: checkpoint saved after each epoch.
+- `models/training/best_model.pth`: best model from future training runs.
+- `results/result.csv`: epoch loss, accuracy, and learning rate.
 
-- `saved_model/{epoch}_model.pth`：每轮保存一次。
-- `saved_model/best_model.pth`：验证集准确率最高的一次。
-- `result.csv`：每轮的 loss、accuracy 和学习率。
+Future training outputs are ignored by Git. The committed model for demonstration and reproduction is:
 
-这些文件已经放进 `.gitignore`，本地训练出来后不会默认提交。
+```text
+models/best_model.pth
+```
 
-## 继续训练
+## Resume Training
 
-比如已经有 `saved_model/120_model.pth`，可以这样接着跑：
+For example, to resume from `models/checkpoints/120_model.pth`:
 
 ```bash
 python train.py \
   --whether-load-model true \
   --start-epoch 120 \
-  --model-save-path ./saved_model \
+  --model-save-path ./models/checkpoints \
   --model-name _model.pth
 ```
 
-实际加载的文件路径是：
+The loaded checkpoint path is:
 
 ```text
 {model-save-path}/{start-epoch}{model-name}
 ```
 
-上面的例子就是：
+## Test on MNIST
+
+Evaluate the committed best model:
+
+```bash
+python test.py --model models/best_model.pth --batch-size 512
+```
+
+Save a confusion matrix:
+
+```bash
+python test.py --model models/best_model.pth --plot
+```
+
+The confusion matrix is saved to:
 
 ```text
-./saved_model/120_model.pth
+results/confusion_matrix.png
 ```
+
+## Predict Your Own Handwritten Image
+
+Put your image under `images/`, for example:
+
+```text
+images/7.jpg
+```
+
+Run prediction:
+
+```powershell
+python predict.py images\7.jpg
+```
+
+Linux / AutoDL:
+
+```bash
+python predict.py images/7.jpg
+```
+
+By default, `predict.py` loads:
+
+```text
+models/best_model.pth
+```
+
+To use another model:
+
+```powershell
+python predict.py images\7.jpg --model models\training\best_model.pth
+```
+
+Supported image formats:
+
+- `.jpg`
+- `.jpeg`
+- `.png`
+
+`predict.py` automatically preprocesses your image:
+
+- converts it to grayscale;
+- inverts white-background images to MNIST style;
+- crops the digit region;
+- resizes it while keeping aspect ratio;
+- centers it on a `28 x 28` canvas;
+- pads it to `200 x 200` before sending it into the ONN.
+
+If prediction looks wrong, save the preprocessed image:
+
+```powershell
+python predict.py images\7.jpg --save-preprocessed results\7_preprocessed.png
+```
+
+The saved file shows the actual `28 x 28` image seen by the model. Use it to check whether the digit is too small, off-center, too thin, or visually different from MNIST.
 
 ## AutoDL
 
-AutoDL 上可以直接用：
+On AutoDL, run:
 
 ```bash
 bash train_autodl.sh
 ```
 
-脚本里默认项目路径是：
+The script assumes the project path is:
 
 ```text
 /root/autodl-tmp/Optical-Neural-Network
 ```
 
-如果你放在别的目录，改一下 `train_autodl.sh` 里的 `cd` 和输出路径就行。
+If your project is in another directory, edit the `cd` line in `train_autodl.sh`.
 
-## 测试
+## Git Ignore Policy
 
-语法检查：
+The following files are intentionally not committed:
 
-```bash
-python -m py_compile onn.py train.py
-```
+- `data/`: MNIST data.
+- `images/*`: your personal handwritten test images.
+- `results/*`: generated reports, plots, and preprocessed images.
+- `models/checkpoints/*`: epoch checkpoints.
+- `models/training/*`: future training outputs.
+- `__pycache__/` and `*.pyc`: Python caches.
 
-简单前向测试：
-
-```bash
-python -m unittest discover -s tests
-```
-
-这个测试不会下载 MNIST，也不会训练模型，只检查 `onn.Net` 能不能正常前向输出 `(batch, 10)`。
-
-## 一些说明
-
-- MNIST 原图是 `28 x 28`，训练前会补零到 `200 x 200`。
-- 网络输出不是传统神经网络的 logits，而是 detector region 光强取对数后的结果。
-- 这个实现主要是复现实验流程，不等同于论文里的真实光学硬件设置。
-- `requirements.txt` 不锁死版本，主要是因为不同机器的 CUDA / PyTorch 安装方式差别比较大。
-
-## 这次整理改了什么
-
-- 重新写了 README，去掉原来的乱码，补了训练、恢复训练、AutoDL 和测试命令。
-- 加了 `.gitignore`，忽略缓存、数据集、模型权重和训练结果。
-- 加了 `tests/test_onn.py`，用一个很小的 smoke test 检查模型前向传播。
-- 清理了误生成的 `__pycache__/`。
-- 把 `train.py` 里重复的 MNIST 预处理抽成了 `prepare_mnist_images()`，训练逻辑和参数不变。
+The repository keeps `models/best_model.pth` as a committed demonstration checkpoint so that prediction and testing work immediately after cloning.
