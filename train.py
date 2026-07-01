@@ -33,6 +33,11 @@ def make_complex_field(images):
     ).squeeze(1).contiguous()
 
 
+def prepare_mnist_images(images):
+    images = F.pad(images, pad=(86, 86, 86, 86))
+    return make_complex_field(images)
+
+
 def main(args):
     os.makedirs(args.model_save_path, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,8 +92,7 @@ def main(args):
         for train_data_batch in tk0:
             train_images = train_data_batch[0].to(device)
             train_labels = train_data_batch[1].to(device)
-            train_images = F.pad(train_images, pad=(86, 86, 86, 86))
-            train_images = make_complex_field(train_images)
+            train_images = prepare_mnist_images(train_images)
 
             train_outputs = model(train_images)
             train_loss_ = criterion(train_outputs, train_labels)
@@ -131,8 +135,7 @@ def main(args):
             for val_data_batch in tk1:
                 val_images = val_data_batch[0].to(device)
                 val_labels = val_data_batch[1].to(device)
-                val_images = F.pad(val_images, pad=(86, 86, 86, 86))
-                val_images = make_complex_field(val_images)
+                val_images = prepare_mnist_images(val_images)
 
                 val_outputs = model(val_images)
                 val_loss_ = criterion(val_outputs, val_labels)
